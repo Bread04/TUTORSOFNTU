@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# ///
 """
 First Breath — Deterministic sanctum scaffolding.
 
@@ -11,21 +14,20 @@ After this script runs, the sanctum is fully self-contained — the agent does
 not depend on the skill bundle location for normal operation.
 
 This initializes the agent's runtime sanctum memory, not build-time config. It
-reads config.yaml and config.user.yaml strictly to substitute values into the
-sanctum templates, and it never writes or authors any config file. Build-time
+reads the project's BMad config strictly to substitute values into the sanctum
+templates, and it never writes or authors any config file. Build-time
 customization is owned by customize.toml, a separate surface this script never
 touches.
 
 Usage:
-    uv run init-sanctum.py <project-root> <skill-path>
-
-    project-root: The root of the project (where _bmad/ lives)
-    skill-path:   Path to the skill directory (where SKILL.md, references/, assets/ live)
+    uv run --managed-python init-sanctum.py <project-root> <skill-path>
 """
 
-import sys
+import argparse
+import json
 import re
 import shutil
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -52,28 +54,81 @@ EVOLVABLE = True
 
 # --- End agent-specific configuration ---
 
-def parse_yaml_config(config_path: Path) -> dict:
-    """Simple YAML key-value parser. Handles top-level scalar values only."""
+# Config files searched for template values, lowest precedence first. BMad has
+# used both .yaml and .toml across versions and splits values between the root
+# and per-module files, so every known location is read and merged rather than
+# one filename being trusted. Missing files are skipped.
+CONFIG_CANDIDATES = [
+    "config.yaml",
+    "bmb/config.yaml",
+    "config.toml",
+    "config.user.yaml",
+    "config.user.toml",
+    "custom/config.toml",
+    "custom/config.user.toml",
+]
+
+# The only keys substituted into templates. Everything else in the config is
+# irrelevant here.
+WANTED_KEYS = {"user_name", "communication_language"}
+
+def strip_inline_comment(value: str) -> str:
+    """Drop a trailing # comment, unless the # sits inside a quoted value."""
+    if value[:1] in "\"'":
+        end = value.find(value[0], 1)
+        if end != -1:
+            return value[: end + 1]
+    head, sep, _ = value.partition("#")
+    return head if sep else value
+
+def parse_config_file(path: Path) -> dict:
+    """Read the wanted scalars from one BMad config file.
+
+    Separator comes from the suffix: TOML is `key = "value"`, YAML is
+    `key: value`. Keys under a section other than [core] are skipped so a
+    per-agent or per-module block cannot shadow a root value.
+    """
+    found = {}
+    if not path.is_file():
+        return found
+
+    sep = "=" if path.suffix == ".toml" else ":"
+    section = None
+
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1].strip()
+            continue
+        if section not in (None, "core"):
+            continue
+
+        key, found_sep, value = line.partition(sep)
+        if not found_sep or key.strip() not in WANTED_KEYS:
+            continue
+        value = strip_inline_comment(value.strip()).strip().strip("'\"")
+        if value:
+            found[key.strip()] = value
+
+    return found
+
+def load_config(bmad_dir: Path) -> tuple[dict, list[str]]:
+    """Merge every config file that exists, later candidates winning."""
     config = {}
-    if not config_path.exists():
-        return config
-    with open(config_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if ":" in line:
-                key, _, value = line.partition(":")
-                value = value.strip().strip("'\"")
-                if value:
-                    config[key.strip()] = value
-    return config
+    read = []
+    for name in CONFIG_CANDIDATES:
+        values = parse_config_file(bmad_dir / name)
+        if values:
+            config.update(values)
+            read.append(name)
+    return config, read
 
 def parse_frontmatter(file_path: Path) -> dict:
     """Extract YAML frontmatter from a markdown file."""
     meta = {}
-    with open(file_path) as f:
-        content = f.read()
+    content = file_path.read_text(encoding="utf-8")
 
     match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
     if not match:
@@ -183,13 +238,30 @@ def substitute_vars(content: str, variables: dict) -> str:
         content = content.replace(f"{{{key}}}", value)
     return content
 
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: uv run init-sanctum.py <project-root> <skill-path>")
-        sys.exit(1)
+def log(message: str = "") -> None:
+    """Progress goes to stderr so stdout stays a clean JSON summary."""
+    print(message, file=sys.stderr)
 
-    project_root = Path(sys.argv[1]).resolve()
-    skill_path = Path(sys.argv[2]).resolve()
+def emit(payload: dict, output: str | None) -> None:
+    text = json.dumps(payload, indent=2)
+    if output:
+        Path(output).write_text(text + "\n", encoding="utf-8")
+    else:
+        print(text)
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Scaffold the agent's sanctum for First Breath. Idempotent: "
+                    "exits without touching anything if a sanctum already exists.",
+    )
+    parser.add_argument("project_root", help="Project root (where _bmad/ lives)")
+    parser.add_argument("skill_path", help="Skill directory (where SKILL.md, references/, assets/ live)")
+    parser.add_argument("-o", "--output", help="Write the JSON summary here instead of stdout")
+    parser.add_argument("--verbose", action="store_true", help="List every file written")
+    args = parser.parse_args()
+
+    project_root = Path(args.project_root).resolve()
+    skill_path = Path(args.skill_path).resolve()
 
     # Paths
     bmad_dir = project_root / "_bmad"
@@ -208,14 +280,17 @@ def main():
 
     # Check if sanctum already exists
     if sanctum_path.exists():
-        print(f"Sanctum already exists at {sanctum_path}")
-        print("This agent has already been born. Skipping First Breath scaffolding.")
-        sys.exit(0)
+        log(f"Sanctum already exists at {sanctum_path}")
+        log("This agent has already been born. Skipping First Breath scaffolding.")
+        emit({"status": "already_born", "sanctum": str(sanctum_path)}, args.output)
+        return 0
 
     # Load config
-    config = {}
-    for config_file in ["config.yaml", "config.user.yaml"]:
-        config.update(parse_yaml_config(bmad_dir / config_file))
+    config, config_files_read = load_config(bmad_dir)
+    if "user_name" not in config:
+        log(f"  Warning: no user_name found in any of {CONFIG_CANDIDATES} under {bmad_dir}.")
+        log("  BOND.md and PERSONA.md will say \"friend\". Fix the config and delete the")
+        log("  sanctum to redo First Breath, or correct those files by hand afterwards.")
 
     # Build variable substitution map
     today = date.today().isoformat()
@@ -232,26 +307,31 @@ def main():
     (sanctum_path / "capabilities").mkdir(exist_ok=True)
     (sanctum_path / "sessions").mkdir(exist_ok=True)
     (sanctum_path / "review").mkdir(exist_ok=True)
-    print(f"Created sanctum at {sanctum_path}")
+    log(f"Created sanctum at {sanctum_path}")
 
     # Copy reference files (capabilities + techniques + guidance) into sanctum
     copied_refs = copy_references(references_dir, sanctum_refs)
-    print(f"  Copied {len(copied_refs)} reference files to sanctum/references/")
-    for name in copied_refs:
-        print(f"    - {name}")
+    log(f"  Copied {len(copied_refs)} reference files to sanctum/references/")
+    if args.verbose:
+        for name in copied_refs:
+            log(f"    - {name}")
 
     # Copy any supporting scripts into sanctum
     copied_scripts = copy_scripts(scripts_dir, sanctum_scripts)
     if copied_scripts:
-        print(f"  Copied {len(copied_scripts)} scripts to sanctum/scripts/")
-        for name in copied_scripts:
-            print(f"    - {name}")
+        log(f"  Copied {len(copied_scripts)} scripts to sanctum/scripts/")
+        if args.verbose:
+            for name in copied_scripts:
+                log(f"    - {name}")
 
     # Copy and substitute template files
+    missing_templates = []
+    written = []
     for template_name in TEMPLATE_FILES:
         template_path = assets_dir / template_name
         if not template_path.exists():
-            print(f"  Warning: template {template_name} not found, skipping")
+            log(f"  Warning: template {template_name} not found, skipping")
+            missing_templates.append(template_name)
             continue
 
         # Remove "-template" from the output filename and uppercase it
@@ -259,23 +339,39 @@ def main():
         # Fix extension casing: .MD -> .md
         output_name = output_name[:-3] + ".md"
 
-        content = template_path.read_text()
+        content = template_path.read_text(encoding="utf-8")
         content = substitute_vars(content, variables)
 
         output_path = sanctum_path / output_name
-        output_path.write_text(content)
-        print(f"  Created {output_name}")
+        output_path.write_text(content, encoding="utf-8")
+        written.append(output_name)
+        log(f"  Created {output_name}")
 
     # Auto-generate CAPABILITIES.md from references/ frontmatter
     capabilities = discover_capabilities(references_dir, sanctum_refs_path)
     capabilities_content = generate_capabilities_md(capabilities, evolvable=EVOLVABLE)
-    (sanctum_path / "CAPABILITIES.md").write_text(capabilities_content)
-    print(f"  Created CAPABILITIES.md ({len(capabilities)} built-in capabilities discovered)")
+    (sanctum_path / "CAPABILITIES.md").write_text(capabilities_content, encoding="utf-8")
+    written.append("CAPABILITIES.md")
+    log(f"  Created CAPABILITIES.md ({len(capabilities)} built-in capabilities discovered)")
 
-    print()
-    print("First Breath scaffolding complete.")
-    print("The conversational awakening can now begin.")
-    print(f"Sanctum: {sanctum_path}")
+    log()
+    log("First Breath scaffolding complete.")
+    log("The conversational awakening can now begin.")
+    log(f"Sanctum: {sanctum_path}")
+
+    emit({
+        "status": "created",
+        "sanctum": str(sanctum_path),
+        "user_name": variables["user_name"],
+        "config_files_read": config_files_read,
+        "files_written": written,
+        "references_copied": len(copied_refs),
+        "scripts_copied": len(copied_scripts),
+        "capabilities_discovered": [c["code"] for c in capabilities],
+        "missing_templates": missing_templates,
+    }, args.output)
+
+    return 1 if missing_templates else 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

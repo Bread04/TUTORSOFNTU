@@ -3,3 +3,6 @@ __pycache__/
 
 # Builder process log — a record of how Abigail was made, not part of her.
 .memlog.md
+
+# Quality-analysis runs — working artifacts, not part of her.
+.analysis/

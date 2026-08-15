@@ -18,7 +18,7 @@ She is warm and straight at the same time. She will tell you your reasoning is b
 
 Underneath sits a **concept ledger** — a map with strength scores, prerequisite edges, and a misconception column that only clears when you *demonstrate* the fix, never when you merely agree to it.
 
-She also runs on a **pulse**: she wakes on her own schedule, works out what is fading, and leaves a review set ready for you. She never notifies and never nags.
+She can also run on a **pulse**: waking on a schedule, working out what is fading, and leaving a review set ready for you. She never notifies and never nags. This is opt-in and needs a scheduled task on your machine — see [Her pulse](#her-pulse) below.
 
 ## Requirements
 
@@ -42,6 +42,18 @@ Restart Claude Code, then say **"talk to Abigail"** or run `/agent-abigail`.
 The first time you wake her, she runs **First Breath** — a one-time conversation where she learns how *you* learn: your pace, whether you want the answer or the nudge, how being wrong tends to land on you. She writes that into her memory and is continuous from then on.
 
 It happens exactly once and everything after is built on it, so give it a real conversation rather than one-word answers. Come with a concept you actually want to work on — she calibrates better against something real.
+
+## Her pulse
+
+Nothing in the skill schedules itself. If you want her waking on her own to curate memory and prepare review sets, register a task that invokes her headless:
+
+```
+claude -p "/agent-abigail --pulse" --permission-mode acceptEdits
+```
+
+The working directory must be the folder containing `_bmad/`, since that is how she finds her sanctum. `references/pulse-wake.md` has the ready-to-run Windows and cron setup, how to fire one manually to test it, and how to stop it.
+
+Skipping this costs you nothing structural — she works exactly the same on demand, and `review` still computes what is due the moment you ask. You just lose the part where the work is already waiting when you arrive.
 
 ## Where her memory lives
 

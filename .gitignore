@@ -1,8 +1,8 @@
 __pycache__/
 *.py[cod]
 
-# Builder process log — a record of how Abigail was made, not part of her.
+# Builder process logs — a record of how a tutor was made, not part of her.
 .memlog.md
 
-# Quality-analysis runs — working artifacts, not part of her.
+# Quality-analysis runs — working artifacts, not part of a tutor.
 .analysis/

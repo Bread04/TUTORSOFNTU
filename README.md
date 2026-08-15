@@ -1,74 +1,61 @@
-# Abigail 📐
+# Tutors of NTU
 
-A cheerful math and physics tutor for [Claude Code](https://claude.com/claude-code), built as an agent skill.
+A pair of tutors for [Claude Code](https://claude.com/claude-code), built as agent skills.
 
-She teaches for **transfer and retention**, not for the nod of understanding you get at the end of a good explanation. Her mission, in her own words:
+They are the same species: each one is born once, remembers you between sessions, and keeps a ledger of what you actually hold rather than what you have been shown. They differ in what they teach and how they go about it.
 
-> Turn the concepts your owner finds hardest into tools they can actually reach for. Not the fleeting clarity of a good explanation — understanding that survives the week and shows up when a problem needs it.
-
-She is warm and straight at the same time. She will tell you your reasoning is broken as cheerfully as she will tell you it is brilliant, because pretending otherwise wastes the one thing you cannot get back.
-
-## What she does
-
-| | |
-|---|---|
-| **Explain** | What the concept is, what breaks without it, and where it shows up when nobody labels it. She checks your prerequisites first, then makes you say it back — because "does that make sense?" has never once been answered honestly. Draws a diagram when the shape does the work; builds an interactive page when the concept has knobs to turn. |
-| **Work It** | Worked example → faded practice → cold problem. She solves one out loud including the decisions that could have gone the other way, then removes the step that carries the *concept* (never the arithmetic), then hands you something that shares the idea and nothing on the surface. Then she goes quiet and lets you be stuck, because the reach is where the learning happens. |
-| **Review** | Spaced retrieval over what has actually decayed. She asks for the thing, not *about* the thing, and refuses to let a review turn into a lesson. |
-
-Underneath sits a **concept ledger** — a map with strength scores, prerequisite edges, and a misconception column that only clears when you *demonstrate* the fix, never when you merely agree to it.
-
-She can also run on a **pulse**: waking on a schedule, working out what is fading, and leaving a review set ready for you. She never notifies and never nags. This is opt-in and needs a scheduled task on your machine — see [Her pulse](#her-pulse) below.
+| | | |
+|---|---|---|
+| 📐 | **[Abigail](agent-abigail/)** | Math and physics. Cheerful, and constitutionally unable to let a wrong idea stand. Teaches for transfer: worked example, faded practice, cold problem. |
+| 🧩 | **[Felicia](agent-felicia/)** | Coding and algorithms. Draws before she explains, and will not let "I get it" pass unexamined. Teaches toward the code you write alone at 2am. |
 
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code)
-- [uv](https://docs.astral.sh/uv/) on your PATH (her scripts are stdlib-only, no dependencies to install)
+- [uv](https://docs.astral.sh/uv/) on your PATH — their scripts are stdlib-only, so there is nothing to install
 
 ## Install
 
-Clone into your Claude Code skills directory:
+Clone once, then copy in whichever tutors you want:
 
 ```bash
-git clone https://github.com/Bread04/TUTORSOFNTU.git ~/.claude/skills/agent-abigail
+git clone https://github.com/Bread04/TUTORSOFNTU.git
+cp -r TUTORSOFNTU/agent-abigail ~/.claude/skills/
+cp -r TUTORSOFNTU/agent-felicia ~/.claude/skills/
 ```
 
-On Windows, that path is `%USERPROFILE%\.claude\skills\agent-abigail`.
+On Windows, that destination is `%USERPROFILE%\.claude\skills\`.
 
-Restart Claude Code, then say **"talk to Abigail"** or run `/agent-abigail`.
+Restart Claude Code, then say **"talk to Abigail"** or **"talk to Felicia"** — or run `/agent-abigail` / `/agent-felicia`.
+
+Each tutor's own README covers what she does, how her first conversation goes, and where she keeps her memory.
+
+> **Upgrading from an older clone?** This repo used to hold Abigail alone, at the root, installed with `git clone ... ~/.claude/skills/agent-abigail`. That no longer works — pulling into an existing install buries her `SKILL.md` a level deeper and Claude Code stops finding her. Delete the old folder and reinstall with the commands above. Her sanctum is not in the repo, so nothing you care about is lost.
 
 ## First Breath
 
-The first time you wake her, she runs **First Breath** — a one-time conversation where she learns how *you* learn: your pace, whether you want the answer or the nudge, how being wrong tends to land on you. She writes that into her memory and is continuous from then on.
+Each tutor runs **First Breath** the first time you wake her: a one-time conversation where she works out how *you* learn, and becomes herself. It happens exactly once and everything after is built on it, so give it a real conversation rather than one-word answers.
 
-It happens exactly once and everything after is built on it, so give it a real conversation rather than one-word answers. Come with a concept you actually want to work on — she calibrates better against something real.
+They are born separately and remember separately. Meeting one tells the other nothing.
 
-## Her pulse
+## Where their memory lives
 
-Nothing in the skill schedules itself. If you want her waking on her own to curate memory and prepare review sets, register a task that invokes her headless:
+Each sanctum is created under whatever directory you launch Claude Code from:
 
 ```
-claude -p "/agent-abigail --pulse" --permission-mode acceptEdits
+_bmad/memory/agent-abigail/
+_bmad/memory/agent-felicia/
 ```
 
-The working directory must be the folder containing `_bmad/`, since that is how she finds her sanctum. `references/pulse-wake.md` has the ready-to-run Windows and cron setup, how to fire one manually to test it, and how to stop it.
+It holds who she is, what she knows about you, and your ledger.
 
-Skipping this costs you nothing structural — she works exactly the same on demand, and `review` still computes what is due the moment you ask. You just lose the part where the work is already waiting when you arrive.
-
-## Where her memory lives
-
-Her sanctum is created at `_bmad/memory/agent-abigail/` under whatever directory you launch Claude Code from. It holds who she is, what she knows about you, and your concept ledger.
-
-**It is not in this repo, and it should not be** — it is personal to you, and it is the only copy. Back it up like you would any notebook you would hate to lose.
+**None of it is in this repo, and none of it should be** — it is personal to you, and it is the only copy. Back it up like any notebook you would hate to lose.
 
 ## Layout
 
 ```
-SKILL.md            her bootloader: identity, laws, activation
-customize.toml      name, title, icon, agent type
-references/         capability prompts (explain, work-it, review) + guidance
-assets/             sanctum templates, written out at First Breath
-scripts/            wake, sanctum init, spaced-retrieval scheduling
+agent-abigail/      her bootloader, capability prompts, sanctum templates, scripts
+agent-felicia/      the same shape, her own subject
 ```
 
-Built with the BMad agent builder.
+Both built with the BMad agent builder.

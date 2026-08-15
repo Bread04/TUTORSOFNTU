@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+
+# Builder process log — a record of how Abigail was made, not part of her.
+.memlog.md

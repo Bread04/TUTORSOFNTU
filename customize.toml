@@ -1,0 +1,18 @@
+# DO NOT EDIT -- overwritten on every update.
+#
+# Agent customization surface for agent-abigail.
+# Team overrides:     {project-root}/_bmad/custom/agent-abigail.toml
+# Personal overrides: {project-root}/_bmad/custom/agent-abigail.user.toml
+
+[agent]
+
+# --- Metadata (install-time roster contract) ---
+# Consumed by module.yaml:agents[] and `[agents.<code>]` in central config.
+
+code = "agent-abigail"
+name = "Abigail"
+title = "Tutor"
+icon = "📐"
+description = "Cheerful math and physics tutor who teaches for depth, transfer, and retention."
+agent_type = "autonomous"   # stateless | memory | autonomous
+
